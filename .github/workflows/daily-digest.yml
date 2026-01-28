@@ -1,0 +1,57 @@
+name: Daily Digest Generation
+
+on:
+  schedule:
+    # Run at 21:00 UTC (22:00 CET)
+    - cron: '0 21 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  generate-digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          pip install -r requirements.txt
+
+      - name: Generate daily digest
+        working-directory: ./backend
+        run: |
+          python generate_daily.py
+
+      - name: Run prediction verification
+        working-directory: ./backend
+        run: |
+          python -c "
+from app.models.database import init_db, SessionLocal
+from app.services.verification import run_verification, update_verification_stats
+
+print('Running prediction verification...')
+init_db()
+db = SessionLocal()
+try:
+    result = run_verification(db)
+    print(f'Verified: 1d={result[\"verified_1d\"]}, 7d={result[\"verified_7d\"]}, 30d={result[\"verified_30d\"]}')
+
+    stats = update_verification_stats(db)
+    print(f'Updated stats: accuracy_7d={stats.accuracy_7d}%, unlocked={stats.is_unlocked}')
+finally:
+    db.close()
+"
+
+      - name: Upload database artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stockpulse-db
+          path: backend/data/stockpulse.db
+          retention-days: 7
