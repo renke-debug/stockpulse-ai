@@ -30,7 +30,7 @@ async function fetchApi<T>(
 
     const data = await response.json();
     return { data };
-  } catch (error) {
+  } catch {
     return { error: "Network error. Please try again." };
   }
 }
