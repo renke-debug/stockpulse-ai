@@ -289,19 +289,19 @@ export default function VerificationPage() {
               <div>
                 <div className="text-sm text-gray-600">1 dag</div>
                 <div className={`text-xl font-bold ${stats?.avg_return_1d && stats.avg_return_1d >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {stats?.avg_return_1d !== null ? `${stats.avg_return_1d >= 0 ? "+" : ""}${stats.avg_return_1d.toFixed(2)}%` : "-"}
+                    {stats?.avg_return_1d != null ? `${stats.avg_return_1d >= 0 ? "+" : ""}${stats.avg_return_1d.toFixed(2)}%` : "-"}
                 </div>
               </div>
               <div>
                 <div className="text-sm text-gray-600">7 dagen</div>
                 <div className={`text-xl font-bold ${stats?.avg_return_7d && stats.avg_return_7d >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {stats?.avg_return_7d !== null ? `${stats.avg_return_7d >= 0 ? "+" : ""}${stats.avg_return_7d.toFixed(2)}%` : "-"}
+                    {stats?.avg_return_7d != null ? `${stats.avg_return_7d >= 0 ? "+" : ""}${stats.avg_return_7d.toFixed(2)}%` : "-"}
                 </div>
               </div>
               <div>
                 <div className="text-sm text-gray-600">30 dagen</div>
                 <div className={`text-xl font-bold ${stats?.avg_return_30d && stats.avg_return_30d >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {stats?.avg_return_30d !== null ? `${stats.avg_return_30d >= 0 ? "+" : ""}${stats.avg_return_30d.toFixed(2)}%` : "-"}
+                    {stats?.avg_return_30d != null ? `${stats.avg_return_30d >= 0 ? "+" : ""}${stats.avg_return_30d.toFixed(2)}%` : "-"}
                 </div>
               </div>
             </div>
