@@ -1,194 +1,278 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { getLatestDigest, type Digest, type StockPick } from "@/lib/api";
+import { getStatus, executeAction, type Status } from "@/lib/api";
 
-function StockCard({ pick, type }: { pick: StockPick; type: "buy" | "sell" }) {
-  const [showDetails, setShowDetails] = useState(false);
-  const isBuy = type === "buy";
+function SignalCard({ status }: { status: Status }) {
+  const signal = status.signal;
+  const [executing, setExecuting] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const getSignalColor = () => {
+    switch (signal.action) {
+      case "BUY":
+        return "bg-green-600";
+      case "SELL":
+        return "bg-blue-600";
+      case "STOP_LOSS":
+        return "bg-red-600";
+      default:
+        return "bg-gray-600";
+    }
+  };
+
+  const getSignalEmoji = () => {
+    switch (signal.action) {
+      case "BUY":
+        return signal.signal_type === "aggressive_buy" ? "🚀" : "📈";
+      case "SELL":
+        return "💰";
+      case "STOP_LOSS":
+        return "🚨";
+      default:
+        return "⏸️";
+    }
+  };
+
+  const handleExecute = async () => {
+    if (signal.action !== "BUY" && signal.action !== "SELL") return;
+
+    setExecuting(true);
+    const action = signal.action === "BUY" ? "buy" : "sell";
+    const result = await executeAction(action, signal.amount);
+
+    if (result.error) {
+      setMessage(`Error: ${result.error}`);
+    } else {
+      setMessage(`✅ ${result.data?.action} executed at $${result.data?.price?.toFixed(2)}`);
+      // Refresh after 2 seconds
+      setTimeout(() => window.location.reload(), 2000);
+    }
+    setExecuting(false);
+  };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition">
-      <div className="flex justify-between items-start">
+    <div className={`${getSignalColor()} rounded-xl p-6 text-white`}>
+      <div className="flex justify-between items-start mb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-lg">{pick.ticker}</span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full ${
-                isBuy ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-              }`}
-            >
-              {pick.signal}
+          <span className="text-4xl">{getSignalEmoji()}</span>
+          <h2 className="text-2xl font-bold mt-2">{signal.action}</h2>
+          {signal.signal_type && (
+            <span className="text-sm opacity-80">
+              {signal.signal_type.replace("_", " ").toUpperCase()}
             </span>
-          </div>
-          <p className="text-sm text-gray-600">{pick.name}</p>
-        </div>
-        <div className="text-right">
-          <div className={`text-xl font-bold ${isBuy ? "text-green-600" : "text-red-600"}`}>
-            {pick.score > 0 ? "+" : ""}{pick.score}
-          </div>
-          {pick.current_price && (
-            <div className="text-sm text-gray-500">
-              ${pick.current_price.toFixed(2)}
-              {pick.day_change_pct !== null && (
-                <span className={pick.day_change_pct >= 0 ? "text-green-600" : "text-red-600"}>
-                  {" "}({pick.day_change_pct >= 0 ? "+" : ""}{pick.day_change_pct}%)
-                </span>
-              )}
-            </div>
           )}
         </div>
+        {signal.amount > 0 && (
+          <div className="text-right">
+            <div className="text-3xl font-bold">€{signal.amount.toFixed(0)}</div>
+            <div className="text-sm opacity-80">
+              @ ${signal.current_price.toFixed(2)}
+            </div>
+          </div>
+        )}
       </div>
 
-      <p className="mt-3 text-sm text-gray-700">{pick.explanation}</p>
+      <p className="text-lg mb-4">{signal.reason}</p>
 
-      <button
-        onClick={() => setShowDetails(!showDetails)}
-        className="mt-3 text-sm text-blue-600 hover:underline"
-      >
-        {showDetails ? "Minder details" : "Meer details"}
-      </button>
+      {(signal.action === "BUY" || signal.action === "SELL") && (
+        <button
+          onClick={handleExecute}
+          disabled={executing}
+          className="w-full bg-white/20 hover:bg-white/30 py-3 rounded-lg font-medium transition disabled:opacity-50"
+        >
+          {executing ? "Recording..." : `I executed this ${signal.action}`}
+        </button>
+      )}
 
-      {showDetails && (
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Score breakdown</h4>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Technisch ({(pick.breakdown.technical.weight * 100).toFixed(0)}%)</span>
-              <span className={pick.breakdown.technical.score >= 0 ? "text-green-600" : "text-red-600"}>
-                {pick.breakdown.technical.contribution >= 0 ? "+" : ""}{(pick.breakdown.technical.contribution * 100).toFixed(1)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Sentiment ({(pick.breakdown.sentiment.weight * 100).toFixed(0)}%)</span>
-              <span className={pick.breakdown.sentiment.score >= 0 ? "text-green-600" : "text-red-600"}>
-                {pick.breakdown.sentiment.contribution >= 0 ? "+" : ""}{(pick.breakdown.sentiment.contribution * 100).toFixed(1)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Fundamenteel ({(pick.breakdown.fundamental.weight * 100).toFixed(0)}%)</span>
-              <span className={pick.breakdown.fundamental.score >= 0 ? "text-green-600" : "text-red-600"}>
-                {pick.breakdown.fundamental.contribution >= 0 ? "+" : ""}{(pick.breakdown.fundamental.contribution * 100).toFixed(1)}
-              </span>
-            </div>
-          </div>
-
-          {pick.news_headlines.length > 0 && (
-            <div className="mt-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Recent nieuws</h4>
-              <ul className="space-y-1">
-                {pick.news_headlines.map((headline, i) => (
-                  <li key={i} className="text-sm text-gray-600">• {headline}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+      {message && (
+        <div className="mt-3 text-sm bg-white/10 rounded p-2">{message}</div>
       )}
     </div>
   );
 }
 
+function MetricCard({
+  label,
+  value,
+  subvalue,
+  color = "text-white",
+}: {
+  label: string;
+  value: string;
+  subvalue?: string;
+  color?: string;
+}) {
+  return (
+    <div className="bg-gray-800 rounded-lg p-4">
+      <div className="text-gray-400 text-sm mb-1">{label}</div>
+      <div className={`text-2xl font-bold ${color}`}>{value}</div>
+      {subvalue && <div className="text-gray-500 text-sm">{subvalue}</div>}
+    </div>
+  );
+}
+
+function GuiderailsBar({ status }: { status: Status }) {
+  const { portfolio, guiderails } = status;
+  const positionPct = (portfolio.total_invested / guiderails.max_position) * 100;
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-4">
+      <div className="flex justify-between text-sm mb-2">
+        <span className="text-gray-400">Position</span>
+        <span>
+          €{portfolio.total_invested.toFixed(0)} / €{guiderails.max_position}
+        </span>
+      </div>
+      <div className="w-full bg-gray-700 rounded-full h-3">
+        <div
+          className="bg-blue-500 h-3 rounded-full transition-all"
+          style={{ width: `${Math.min(positionPct, 100)}%` }}
+        />
+      </div>
+      <div className="flex justify-between text-xs text-gray-500 mt-1">
+        <span>€{portfolio.remaining_capacity.toFixed(0)} remaining</span>
+        <span>{positionPct.toFixed(0)}%</span>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
-  const [digest, setDigest] = useState<Digest | null>(null);
+  const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const loadData = async () => {
-      const digestResult = await getLatestDigest();
-      if (digestResult.error) {
-        setError(digestResult.error);
-      } else if (digestResult.data) {
-        setDigest(digestResult.data);
+      const result = await getStatus();
+      if (result.error) {
+        setError(result.error);
+      } else if (result.data) {
+        setStatus(result.data);
       }
       setLoading(false);
     };
 
     loadData();
+    // Refresh every 5 minutes
+    const interval = setInterval(loadData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600">Laden...</div>
+        <div className="text-gray-400">Loading strategy...</div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">StockPulse AI</h1>
-          <Link href="/verification" className="text-sm text-blue-600 hover:underline">
-            Verificatie
-          </Link>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {error && (
-          <div className="mb-6 bg-red-50 text-red-600 p-3 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
-
-        {digest?.generated_at && (
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-8">
-            <div className="text-right">
-              <span className="text-sm text-gray-600">Laatste update</span>
-              <div className="text-sm font-medium">
-                {new Date(digest.generated_at).toLocaleString("nl-NL")}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {digest?.message && !digest.buy.length && !digest.sell.length ? (
-          <div className="bg-yellow-50 text-yellow-800 p-4 rounded-lg text-center">
-            {digest.message}
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <h2 className="text-lg font-bold text-green-700 mb-4 flex items-center gap-2">
-                <span className="text-2xl">📈</span> Top 5 koopsignalen
-              </h2>
-              <div className="space-y-4">
-                {digest?.buy.map((pick, i) => (
-                  <StockCard key={i} pick={pick} type="buy" />
-                ))}
-                {!digest?.buy.length && (
-                  <p className="text-gray-500 text-sm">Geen koopsignalen beschikbaar</p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-lg font-bold text-red-700 mb-4 flex items-center gap-2">
-                <span className="text-2xl">📉</span> Top 5 verkoopsignalen
-              </h2>
-              <div className="space-y-4">
-                {digest?.sell.map((pick, i) => (
-                  <StockCard key={i} pick={pick} type="sell" />
-                ))}
-                {!digest?.sell.length && (
-                  <p className="text-gray-500 text-sm">Geen verkoopsignalen beschikbaar</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-12 text-center text-sm text-gray-500">
-          <p>
-            ⚠️ Dit is een experimenteel systeem. Geen financieel advies.
-            Doe altijd je eigen onderzoek voordat je belegt.
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-red-900/50 border border-red-700 rounded-lg p-6 max-w-md text-center">
+          <h2 className="text-xl font-bold text-red-400 mb-2">Connection Error</h2>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <p className="text-sm text-gray-500">
+            Make sure the backend is running:<br />
+            <code className="bg-gray-800 px-2 py-1 rounded">cd backend && uvicorn app.main:app</code>
           </p>
         </div>
-      </main>
+      </div>
+    );
+  }
+
+  if (!status) return null;
+
+  const { signal, portfolio, drawdown } = status;
+
+  return (
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">StockPulse</h1>
+            <p className="text-gray-400 text-sm">Drawdown Strategy • {status.ticker}</p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold">${status.current_price.toFixed(2)}</div>
+            <div
+              className={`text-sm ${
+                drawdown.drawdown_pct > 20 ? "text-red-400" : "text-gray-400"
+              }`}
+            >
+              {drawdown.drawdown_pct.toFixed(1)}% from peak
+            </div>
+          </div>
+        </div>
+
+        {/* Signal Card */}
+        <div className="mb-6">
+          <SignalCard status={status} />
+        </div>
+
+        {/* Portfolio Metrics */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <MetricCard
+            label="Total Invested"
+            value={`€${portfolio.total_invested.toFixed(0)}`}
+            subvalue={`${portfolio.positions_count} positions`}
+          />
+          <MetricCard
+            label="Current Value"
+            value={`€${portfolio.current_value.toFixed(0)}`}
+            subvalue={`${portfolio.total_shares.toFixed(2)} shares`}
+          />
+          <MetricCard
+            label="P&L"
+            value={`€${portfolio.pnl_euro.toFixed(0)}`}
+            subvalue={`${portfolio.pnl_pct >= 0 ? "+" : ""}${portfolio.pnl_pct.toFixed(1)}%`}
+            color={portfolio.pnl_pct >= 0 ? "text-green-400" : "text-red-400"}
+          />
+          <MetricCard
+            label="Days Since Buy"
+            value={signal.days_since_buy?.toString() || "-"}
+            subvalue={status.last_buy_date || "No buys yet"}
+          />
+        </div>
+
+        {/* Guiderails */}
+        <div className="mb-6">
+          <h3 className="text-gray-400 text-sm mb-2">Guiderails</h3>
+          <GuiderailsBar status={status} />
+        </div>
+
+        {/* Strategy Rules */}
+        <div className="bg-gray-800 rounded-lg p-4 text-sm">
+          <h3 className="font-medium mb-3">Strategy Rules</h3>
+          <div className="space-y-2 text-gray-400">
+            <div className="flex justify-between">
+              <span>📈 Normal buy (DD &lt;20%)</span>
+              <span>€500 / 7 days</span>
+            </div>
+            <div className="flex justify-between">
+              <span>🚀 Aggressive buy (DD &gt;20%)</span>
+              <span>€1500 / 5 days</span>
+            </div>
+            <div className="flex justify-between">
+              <span>💰 Profit take (&gt;40%)</span>
+              <span>Sell 25%</span>
+            </div>
+            <div className="flex justify-between">
+              <span>🚨 Stop loss</span>
+              <span>-25% alert</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center text-xs text-gray-600">
+          <p>Last updated: {new Date(signal.timestamp).toLocaleString("nl-NL")}</p>
+          <p className="mt-1">⚠️ Not financial advice. Execute trades manually.</p>
+        </div>
+      </div>
     </div>
   );
 }

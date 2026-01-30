@@ -1,47 +1,36 @@
-# StockPulse AI
+# StockPulse - Drawdown Strategy
 
-AI-gestuurde dagelijkse stock advisory voor beginnende beleggers.
+A simple QQQ drawdown-based accumulation strategy with guiderails.
 
-## Features
+## Strategy
 
-- 📈 Daily top 5 buy signals
-- 📉 Daily top 5 sell signals
-- 🤖 Multi-factor AI scoring (technisch, sentiment, fundamenteel)
-- 💰 Budget-based position sizing
-- 📱 Responsive webapp
+Based on the [NexusTrade article](https://nexustrade.io/blog/i-asked-claude-opus-45-to-autonomously-develop-a-trading-strategy-it-is-destroying-the-market-20251125) about Claude Opus 4.5's autonomous trading strategy.
 
-## Tech Stack
+### Rules
 
-**Backend**
-- Python 3.11 + FastAPI
-- SQLite + SQLAlchemy
-- yfinance (gratis market data)
-- RSS feeds voor nieuws
+| Condition | Action |
+|-----------|--------|
+| Drawdown < 20%, 7+ days since last buy | Buy €500 |
+| Drawdown > 20%, 5+ days since last buy | Buy €1,500 |
+| Position up > 40% | Sell 25% |
 
-**Frontend**
-- Next.js 14 + TypeScript
-- TailwindCSS
-- JWT authentication
+### Guiderails
 
-## Quick Start
+- **Max position:** €10,000
+- **Stop-loss alert:** -25%
+- **Min cash reserve:** €2,000
+
+## Setup
 
 ### Backend
 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
-
-# Initialize database with stocks
-python -c "from app.models.database import init_db; init_db()"
-python -m app.services.seed_stocks
-
-# Run API server
 uvicorn app.main:app --reload
 ```
-
-API docs: http://localhost:8000/docs
 
 ### Frontend
 
@@ -51,51 +40,29 @@ npm install
 npm run dev
 ```
 
-App: http://localhost:3000
+## Usage
 
-## Generate Digest
-
-```bash
-cd backend
-python generate_daily.py
-```
-
-Of via API:
-```bash
-curl -X POST http://localhost:8000/api/digest/generate
-```
+1. Open http://localhost:3000
+2. Check the current signal
+3. Execute trades manually via your broker
+4. Click "I executed this" to record the trade
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/health` | GET | Health check |
-| `/api/user/register` | POST | Create account |
-| `/api/user/login` | POST | Login |
-| `/api/user/me` | GET | Get profile |
-| `/api/user/budget` | PATCH | Update budget |
-| `/api/digest/latest` | GET | Latest digest |
-| `/api/digest/{date}` | GET | Digest by date |
-| `/api/digest/generate` | POST | Trigger generation |
+- `GET /api/signal` - Current trading signal
+- `GET /api/status` - Full portfolio status
+- `POST /api/execute/buy` - Record a buy
+- `POST /api/execute/sell` - Record a sell
+- `GET /api/history` - Price/drawdown history
 
 ## Deployment
 
-### Railway (Backend)
+The app is designed to run locally. For cloud deployment:
+- Backend: Render/Railway
+- Frontend: Vercel
 
-1. Connect GitHub repo
-2. Set root directory: `backend`
-3. Set start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-
-### Vercel (Frontend)
-
-1. Connect GitHub repo
-2. Set root directory: `frontend`
-3. Add env var: `NEXT_PUBLIC_API_URL=https://your-railway-url.up.railway.app`
+Set `NEXT_PUBLIC_API_URL` in Vercel to your backend URL.
 
 ## Disclaimer
 
-⚠️ Dit is een experimenteel systeem. Geen financieel advies. Doe altijd je eigen onderzoek voordat je belegt.
-
-## License
-
-MIT
+⚠️ Not financial advice. Use at your own risk.
